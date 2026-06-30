@@ -1,0 +1,20 @@
+// =====================================================================
+//  AI 4분할 레이아웃 — 각 패널 프레임에 이름(제목) 부여
+//  사용:  zwork <프로젝트>   또는   zellij --layout <이 파일 경로>
+//  배치:  좌상 claude | 우상 codex | 좌하 gemini | 우하 shell
+//  실행 중 이름 바꾸기:  Ctrl+p  ->  c  (또는  pane "..."  명령)
+// =====================================================================
+layout {
+    tab name="ai" {
+        pane split_direction="horizontal" {
+            pane split_direction="vertical" {
+                pane name="claude"
+                pane name="codex"
+            }
+            pane split_direction="vertical" {
+                pane name="gemini"
+                pane name="shell"
+            }
+        }
+    }
+}
