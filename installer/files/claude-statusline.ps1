@@ -57,9 +57,13 @@ function RlReset([long]$epoch) {
     $d = [int]($s / 86400); $h = [int](($s % 86400) / 3600); $m = [int](($s % 3600) / 60)
     if ($d -gt 0) { "${d}d${h}h" } elseif ($h -gt 0) { "${h}h${m}m" } else { "${m}m" }
 }
+function RlExact([long]$epoch) {
+    # 한국시간(KST, UTC+9) 정확한 초기화 시각: 2026/07/02 PM 10:00
+    ([DateTimeOffset]::FromUnixTimeSeconds($epoch)).ToOffset([TimeSpan]::FromHours(9)).ToString('yyyy/MM/dd tt hh:mm', [Globalization.CultureInfo]::InvariantCulture)
+}
 function RlSeg([string]$label, $w) {
     $pct = [double]$w.used_percentage
-    $rst = if ($null -ne $w.resets_at) { " $cTim" + ([char]0x21BB) + (RlReset ([long]$w.resets_at)) + "$R" } else { '' }
+    $rst = if ($null -ne $w.resets_at) { " $cTim" + ([char]0x21BB) + (RlReset ([long]$w.resets_at)) + " (" + (RlExact ([long]$w.resets_at)) + ")$R" } else { '' }
     "$cTim$label$R $(RlColor $pct)[$(RlBar $pct)] $([int][math]::Round($pct))%$R$rst"
 }
 
