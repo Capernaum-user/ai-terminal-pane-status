@@ -83,7 +83,28 @@ try {
         default { $folder = $cwd }
     }
 
-    $parts = @("$cDir$fIcon $folder$R")
+    # 같은 패널 공유 레코드 읽기 (상태 점 + 작업 라벨 공용)
+    $lk = $env:ZELLIJ_PANE_ID; if (-not $lk) { $lk = $env:TMUX_PANE }; if (-not $lk) { $lk = $env:WT_SESSION }; if (-not $lk) { $lk = $j.session_id }
+    $lr = $null
+    if ($lk) {
+        $lk = ($lk -replace '[^A-Za-z0-9_-]', '')
+        $lrf = Join-Path (Join-Path $env:TEMP 'claude-pane-status') "$lk.json"
+        if (Test-Path $lrf) { try { $lr = Get-Content -LiteralPath $lrf -Raw | ConvertFrom-Json } catch { $lr = $null } }
+    }
+
+    # 상태 점(폴더명 맨 앞): 🟢 대기중(idle/start) · 🔴 확인요청(attention) · 작업중은 실시간 불가→회색
+    $dot = ''
+    if ($lr) {
+        $ds = switch ("$($lr.state)") {
+            'idle' { C 152 195 121 }        # 초록 · 대기중(내 차례)
+            'start' { C 152 195 121 }       # 초록 · 새 세션 대기
+            'attention' { C 224 108 117 }   # 빨강 · 확인요청
+            default { C 90 96 110 }         # 회색 · 작업중/불명(실시간 아님)
+        }
+        $dot = "$ds" + ([char]0x25CF) + "$R "
+    }
+
+    $parts = @("$dot$cDir$fIcon $folder$R")
 
     $branch = Get-GitBranchFast $cwd
     if ($branch) { $parts += "$cGit$bIcon $branch$R" }
@@ -100,23 +121,20 @@ try {
     }
 
     $ctx = $j.context_window.used_percentage
-    if ($null -ne $ctx) { $parts += "$cCtx" + ("ctx {0}%" -f [int]$ctx) + "$R" }
+    if ($null -ne $ctx) {
+        $ci = [int]$ctx
+        if ($ci -ge 90) { $cc = C 224 108 117; $warn = ' ' + ([char]0x26A0) + ' /compact!' }        # 빨강 · 급함
+        elseif ($ci -ge 80) { $cc = C 224 160 90; $warn = ' ' + ([char]0x26A0) + ' /compact 권장' }   # 주황 · 권장
+        else { $cc = $cCtx; $warn = '' }
+        $parts += "$cc" + ("ctx {0}%" -f $ci) + $warn + "$R"
+    }
 
-    # AI 작업 라벨 (같은 패널 공유 레코드: AI 자동 명명 또는 수동 label)
-    $lk = $env:ZELLIJ_PANE_ID; if (-not $lk) { $lk = $env:TMUX_PANE }; if (-not $lk) { $lk = $env:WT_SESSION }; if (-not $lk) { $lk = $j.session_id }
-    if ($lk) {
-        $lk = ($lk -replace '[^A-Za-z0-9_-]', '')
-        $lrf = Join-Path (Join-Path $env:TEMP 'claude-pane-status') "$lk.json"
-        if (Test-Path $lrf) {
-            try { $lr = Get-Content -LiteralPath $lrf -Raw | ConvertFrom-Json } catch { $lr = $null }
-            if ($lr) {
-                # 요청한 작업 라벨 (신호등 제거, 최대 12자)
-                $lab = if ($lr.label) { $lr.label } elseif ($lr.task) { $lr.task } else { '' }
-                if ($lab) {
-                    if ($lab.Length -gt 12) { $lab = $lab.Substring(0, 12) + '…' }
-                    $parts += "$cLab$lab$R"
-                }
-            }
+    # AI 작업 라벨 (위에서 읽은 $lr 재사용, 최대 12자)
+    if ($lr) {
+        $lab = if ($lr.label) { $lr.label } elseif ($lr.task) { $lr.task } else { '' }
+        if ($lab) {
+            if ($lab.Length -gt 12) { $lab = $lab.Substring(0, 12) + '…' }
+            $parts += "$cLab$lab$R"
         }
     }
 
